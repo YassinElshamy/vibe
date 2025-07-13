@@ -1,4 +1,4 @@
-import { gemini, createAgent, createTool, createNetwork } from "@inngest/agent-kit";
+import { gemini, createAgent, createTool, createNetwork, Tool } from "@inngest/agent-kit";
 
 import { Sandbox } from "@e2b/code-interpreter";
 
@@ -9,10 +9,18 @@ import { getSandbox, lastAssistantTextMessageContent } from "./utils";
 import {z} from "zod";
 import { PROMPT } from "@/prompts";
 
+import { prisma } from "@/lib/db";
+import path from "path";
 
-export const helloWorld = inngest.createFunction(
-  { id: "hello-world" },
-  { event: "test/hello.world" },
+
+interface AgentState {
+  summary: string;
+  files: { [path: string]: string };
+};
+
+export const codeAgentFunction = inngest.createFunction(
+  { id: "code-agent" },
+  { event: "code-agent/run" },
   async ({ event, step }) => {
     const sandboxID = await step.run("get sandbox ID", async () => {
       const sandbox = await Sandbox.create("vibe-nextjs-test-yassin");
@@ -20,7 +28,7 @@ export const helloWorld = inngest.createFunction(
     });
 
     // Create a new agent with a system prompt (you can add optional tools, too)
-    const codeAgent = createAgent({
+    const codeAgent = createAgent<AgentState>({
       name: "code-agent",
       description: "An expert coding agent",
       system: PROMPT,
@@ -69,7 +77,7 @@ export const helloWorld = inngest.createFunction(
           }),
           handler: async(
             { files },
-            { step, network }
+            { step, network }: Tool.Options<AgentState>
           ) => {
             const newFiles = await step?.run("createOrUpdateFiles", async () => {
               try {
@@ -118,7 +126,7 @@ export const helloWorld = inngest.createFunction(
           const lastAssistantMessageText =lastAssistantTextMessageContent(result);
         
           if (lastAssistantMessageText && network) {
-            if (lastAssistantMessageText.includes("<Task_summary>")) {
+            if (lastAssistantMessageText.includes("<task_summary>")) {
               network.state.data.summary = lastAssistantMessageText
             }
           }
@@ -128,7 +136,7 @@ export const helloWorld = inngest.createFunction(
       }
     });
 
-    const network = createNetwork({
+    const network = createNetwork<AgentState>({
       name: "coding-agent-network",
       agents: [codeAgent],
       maxIter: 15,
@@ -146,11 +154,41 @@ export const helloWorld = inngest.createFunction(
 
     const result = await network.run(event.data.value);
 
+    const isError = 
+      !result.state.data.summary || 
+      Object.keys(result.state.data.files || {}).length === 0;
+
     const sandboxUrl = await step.run("get sandbox URL", async () => {
       const sandbox = await getSandbox(sandboxID);
       const host = sandbox.getHost(3000);
       return `https://${host}`;
-    })
+    });
+
+    await step.run("save-result", async () => {
+      if (isError) {
+        return await prisma.message.create({
+          data: {
+            content: "An error occurred while running the code agent. Please try again.",
+            role: "ASSISTANT",
+            type: "ERROR",
+          },
+        });
+      }
+      return await prisma.message.create({
+        data: {
+          content: result.state.data.summary || "Task completed successfully",
+          role: "ASSISTANT",
+          type: "RESULT",
+          fragment: {
+            create: {
+              sandboxUrl: sandboxUrl,
+              title: "Fragment",
+              files: result.state.data.files,
+            },
+          },
+        },
+      })
+    });
     
     return { 
       url: sandboxUrl,
