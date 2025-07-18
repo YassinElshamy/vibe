@@ -1,0 +1,1 @@
+export const SANDBOX_TIMEOUT = 60_000 * 10 * 3; // 60_000 * 10 * 3 for 30 minutes and 3_600_000 for 1 hour
