@@ -42,6 +42,9 @@ export const ProjectForm = () => {
             queryClient.invalidateQueries(
                 trpc.usage.status.queryOptions(),
             );
+
+            router.push(`/projects/${data.id}`); // adjust to desired route
+
         },
         onError: (error) => {
             toast.error(error.message)
