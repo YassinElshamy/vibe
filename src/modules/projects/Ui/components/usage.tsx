@@ -3,7 +3,6 @@ import { CrownIcon } from "lucide-react";
 import { formatDuration, intervalToDuration } from "date-fns";
 
 import { Button } from "@/components/ui/button";
-import { MenubarSub } from "@radix-ui/react-menubar";
 import { useAuth } from "@clerk/nextjs";
 import { useMemo } from "react";
 

@@ -18,7 +18,6 @@ import {
     BreadcrumbEllipsis,
 } from "@/components/ui/breadcrumb";
 import { convertFilesToTreeItems } from "@/lib/utils";
-import { string } from "zod";
 import { TreeView } from "./tree-view";
 
 type FileCollection = { [path:string]: string };

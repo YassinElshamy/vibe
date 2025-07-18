@@ -10,7 +10,6 @@ import {z} from "zod";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "@/prompts";
 
 import { prisma } from "@/lib/db";
-import path, { parse } from "path";
 import { SANDBOX_TIMEOUT } from "./types";
 
 interface AgentState {
